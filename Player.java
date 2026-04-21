@@ -32,10 +32,11 @@ public class Player {
     
     public void beats(Player player2)
     {
+        int K_coefficient = 24;
         double expectedPlayer1Score = 1 / (1 + Math.pow(10, (player2.eloPoints - this.eloPoints)/400));
-        this.eloPoints += 24 * (1 - expectedPlayer1Score);
+        this.eloPoints += K_coefficient * (1 - expectedPlayer1Score);
         this.gamesWon++;
-        player2.eloPoints -= 24 * (1 - expectedPlayer1Score);
+        player2.eloPoints -= K_coefficient * (1 - expectedPlayer1Score);
     }
 
     public static void main(String[] args)
