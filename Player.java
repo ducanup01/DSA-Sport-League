@@ -4,11 +4,13 @@ public class Player {
     double eloPoints;
     int skillPoint, performanceDeviation;
     int gamesWon, gamesPlayed;
+    public int id;
 
     static Random random = new Random();
 
-    public Player(int skillPoint, int performanceDeviation)
+    public Player(int id, int skillPoint, int performanceDeviation)
     {
+        this.id = id;
         this.skillPoint = skillPoint;
         this.performanceDeviation = performanceDeviation;
         this.eloPoints = 1500;
