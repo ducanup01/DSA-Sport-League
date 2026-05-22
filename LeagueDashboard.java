@@ -15,6 +15,7 @@ public class LeagueDashboard extends JFrame {
 
     private final JLabel statusLabel = new JLabel("Ready");
     private final LiveChartPanel chartPanel = new LiveChartPanel();
+    private final AVLTreePanel avlTreePanel = new AVLTreePanel();
 
     private final DefaultTableModel tableModel = new DefaultTableModel(
         new String[] {"Rank", "ID", "Elo", "Won", "Played"}, 0
@@ -59,6 +60,7 @@ public class LeagueDashboard extends JFrame {
                 selectedPlayerId = Integer.parseInt(tableModel.getValueAt(row, 1).toString());
                 searchField.setText(String.valueOf(selectedPlayerId));
                 updateProfile();
+                avlTreePanel.setSelectedPlayerId(selectedPlayerId);
             }
         });
 
@@ -108,9 +110,19 @@ public class LeagueDashboard extends JFrame {
         rightPanel.add(tablePane, BorderLayout.CENTER);
         rightPanel.add(profilePane, BorderLayout.SOUTH);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, chartPanel, rightPanel);
-        split.setResizeWeight(0.68);
-        split.setPreferredSize(new Dimension(1120, 680));
+        JScrollPane treePane = new JScrollPane(avlTreePanel);
+        treePane.setBorder(BorderFactory.createTitledBorder("Live AVL Tree Structure"));
+        treePane.getVerticalScrollBar().setUnitIncrement(16);
+        treePane.getHorizontalScrollBar().setUnitIncrement(16);
+
+        JSplitPane leftSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, chartPanel, treePane);
+        leftSplit.setResizeWeight(0.58);
+        leftSplit.setContinuousLayout(true);
+
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplit, rightPanel);
+        split.setResizeWeight(0.70);
+        split.setPreferredSize(new Dimension(1220, 760));
+        split.setContinuousLayout(true);
 
         return split;
     }
@@ -216,6 +228,7 @@ public class LeagueDashboard extends JFrame {
 
         chartPanel.setData(skill, elo);
         fillLeaderboard(tree.getTopK(10));
+        avlTreePanel.setTree(tree, selectedPlayerId);
 
         if (selectedPlayerId >= 0 && selectedPlayerId < players.length) {
             updateProfile();
@@ -260,6 +273,7 @@ public class LeagueDashboard extends JFrame {
             selectedPlayerId = id;
             updateProfile();
             reselectPlayer();
+            avlTreePanel.setSelectedPlayerId(selectedPlayerId);
         } catch (NumberFormatException e) {
             profileArea.setText("Please enter a valid player ID.");
         }
@@ -328,6 +342,267 @@ public class LeagueDashboard extends JFrame {
         kField.setEnabled(enabled);
         runButton.setEnabled(enabled);
     }
+
+    private static class AVLTreePanel extends JPanel {
+    private static final int MAX_VISIBLE_DEPTH = 4;
+    private static final int NODE_RADIUS = 22;
+    private static final int LEVEL_GAP = 72;
+    private static final int TOP_PADDING = 70;
+    private static final int SIDE_PADDING = 36;
+
+    private TreeNode root;
+    private int selectedPlayerId = -1;
+    private int visibleNodeCount = 0;
+    private int totalTreeHeight = 0;
+    private int totalNodeCount = 0;
+
+    private String message = "Run the simulation to see the AVL tree structure.";
+
+    AVLTreePanel() {
+        setBackground(new Color(250, 251, 253));
+        setPreferredSize(new Dimension(900, 360));
+        setMinimumSize(new Dimension(700, 320));
+        setFont(new Font("SansSerif", Font.PLAIN, 12));
+    }
+
+    void setTree(AVLTree tree, int selectedPlayerId) {
+        this.root = tree == null ? null : tree.getRoot();
+        this.selectedPlayerId = selectedPlayerId;
+
+        this.totalTreeHeight = root == null ? 0 : root.height;
+        this.visibleNodeCount = countVisible(root, 1);
+        this.totalNodeCount = tree == null ? 0 : tree.getNodeCount();
+
+        this.message = root == null
+            ? "Run the simulation to see the AVL tree structure."
+            : "Compact view: first " + MAX_VISIBLE_DEPTH + " levels shown.";
+
+        repaint();
+    }
+
+    void setSelectedPlayerId(int selectedPlayerId) {
+        this.selectedPlayerId = selectedPlayerId;
+        repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        drawHeader(g2);
+
+        if (root == null) {
+            drawEmptyState(g2);
+            return;
+        }
+
+        int panelWidth = getWidth();
+        int startX = panelWidth / 2;
+        int startY = TOP_PADDING + 34;
+
+        int initialGap = Math.max(70, panelWidth / 4);
+
+        drawEdges(g2, root, startX, startY, initialGap, 1);
+        drawNodes(g2, root, startX, startY, initialGap, 1);
+
+        drawLegend(g2);
+    }
+
+    private void drawHeader(Graphics2D g2) {
+        g2.setColor(new Color(26, 31, 39));
+        g2.setFont(new Font("SansSerif", Font.BOLD, 16));
+        g2.drawString("AVL Tree Structure", SIDE_PADDING, 28);
+
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        g2.setColor(new Color(90, 98, 110));
+
+        String summary =
+            message +
+            "  |  Total nodes: " + totalNodeCount +
+            "  |  Full height: " + totalTreeHeight +
+            "  |  Visible nodes: " + visibleNodeCount;
+
+        g2.drawString(summary, SIDE_PADDING, 49);
+    }
+
+    private void drawEmptyState(Graphics2D g2) {
+        int centerX = getWidth() / 2;
+        int centerY = getHeight() / 2;
+
+        g2.setColor(new Color(234, 238, 244));
+        g2.fillRoundRect(centerX - 190, centerY - 48, 380, 96, 24, 24);
+
+        g2.setColor(new Color(70, 78, 90));
+        g2.setFont(new Font("SansSerif", Font.BOLD, 14));
+        drawCenteredString(g2, "No AVL tree yet", centerX, centerY - 8);
+
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        drawCenteredString(g2, "Click Run to build and visualize the tree.", centerX, centerY + 17);
+    }
+
+    private void drawEdges(Graphics2D g2, TreeNode node, int x, int y, int gap, int depth) {
+        if (node == null || depth >= MAX_VISIBLE_DEPTH) return;
+
+        int childY = y + LEVEL_GAP;
+        int nextGap = Math.max(48, gap / 2);
+
+        g2.setStroke(new BasicStroke(1.4f));
+        g2.setColor(new Color(170, 180, 194));
+
+        if (node.left != null) {
+            int childX = x - gap;
+            g2.drawLine(x, y + NODE_RADIUS, childX, childY - NODE_RADIUS);
+            drawEdges(g2, node.left, childX, childY, nextGap, depth + 1);
+        }
+
+        if (node.right != null) {
+            int childX = x + gap;
+            g2.drawLine(x, y + NODE_RADIUS, childX, childY - NODE_RADIUS);
+            drawEdges(g2, node.right, childX, childY, nextGap, depth + 1);
+        }
+    }
+
+    private void drawNodes(Graphics2D g2, TreeNode node, int x, int y, int gap, int depth) {
+        if (node == null || depth > MAX_VISIBLE_DEPTH) return;
+
+        drawSingleNode(g2, node, x, y);
+
+        if (depth == MAX_VISIBLE_DEPTH) {
+            drawMoreMarker(g2, node, x, y);
+            return;
+        }
+
+        int childY = y + LEVEL_GAP;
+        int nextGap = Math.max(48, gap / 2);
+
+        if (node.left != null) {
+            drawNodes(g2, node.left, x - gap, childY, nextGap, depth + 1);
+        }
+
+        if (node.right != null) {
+            drawNodes(g2, node.right, x + gap, childY, nextGap, depth + 1);
+        }
+    }
+
+    private void drawSingleNode(Graphics2D g2, TreeNode node, int x, int y) {
+        Player p = node.player;
+        int balance = height(node.left) - height(node.right);
+        boolean selected = p != null && p.id == selectedPlayerId;
+
+        Color fillColor = getNodeColor(balance, selected);
+        Color borderColor = selected
+            ? new Color(202, 126, 22)
+            : new Color(61, 70, 82);
+
+        g2.setColor(new Color(0, 0, 0, 28));
+        g2.fillOval(
+            x - NODE_RADIUS + 2,
+            y - NODE_RADIUS + 3,
+            NODE_RADIUS * 2,
+            NODE_RADIUS * 2
+        );
+
+        g2.setColor(fillColor);
+        g2.fillOval(
+            x - NODE_RADIUS,
+            y - NODE_RADIUS,
+            NODE_RADIUS * 2,
+            NODE_RADIUS * 2
+        );
+
+        g2.setColor(borderColor);
+        g2.setStroke(new BasicStroke(selected ? 3f : 1.4f));
+        g2.drawOval(
+            x - NODE_RADIUS,
+            y - NODE_RADIUS,
+            NODE_RADIUS * 2,
+            NODE_RADIUS * 2
+        );
+
+        g2.setColor(new Color(23, 29, 38));
+        g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+        drawCenteredString(g2, "ID " + p.id, x, y - 3);
+
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        drawCenteredString(g2, String.format("%.0f", p.eloPoints), x, y + 10);
+
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        g2.setColor(new Color(85, 92, 103));
+        drawCenteredString(g2, "h" + node.height + " b" + balance, x, y + NODE_RADIUS + 14);
+    }
+
+    private Color getNodeColor(int balance, boolean selected) {
+        if (selected) return new Color(255, 243, 183);
+
+        if (balance == 0) {
+            return new Color(219, 237, 255);
+        }
+
+        if (Math.abs(balance) == 1) {
+            return new Color(222, 242, 226);
+        }
+
+        return new Color(255, 224, 224);
+    }
+
+    private void drawMoreMarker(Graphics2D g2, TreeNode node, int x, int y) {
+        if (node.left == null && node.right == null) return;
+
+        g2.setColor(new Color(110, 118, 130));
+        g2.setFont(new Font("SansSerif", Font.BOLD, 13));
+        drawCenteredString(g2, "...", x, y + NODE_RADIUS + 29);
+    }
+
+    private void drawLegend(Graphics2D g2) {
+        int baseY = getHeight() - 42;
+        int x = SIDE_PADDING;
+
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        g2.setColor(new Color(82, 90, 101));
+        g2.drawString(
+            "Each node shows: Player ID, Elo, height, and balance factor. Balance = left height - right height.",
+            x,
+            baseY
+        );
+
+        drawLegendItem(g2, x, baseY + 22, new Color(219, 237, 255), "balanced");
+        drawLegendItem(g2, x + 105, baseY + 22, new Color(222, 242, 226), "slightly tilted");
+        drawLegendItem(g2, x + 235, baseY + 22, new Color(255, 243, 183), "selected player");
+    }
+
+    private void drawLegendItem(Graphics2D g2, int x, int y, Color color, String label) {
+        g2.setColor(color);
+        g2.fillRoundRect(x, y - 12, 15, 15, 5, 5);
+
+        g2.setColor(new Color(85, 94, 106));
+        g2.drawRoundRect(x, y - 12, 15, 15, 5, 5);
+
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        g2.drawString(label, x + 22, y);
+    }
+
+    private int height(TreeNode node) {
+        return node == null ? 0 : node.height;
+    }
+
+    private int countVisible(TreeNode node, int depth) {
+        if (node == null || depth > MAX_VISIBLE_DEPTH) return 0;
+
+        return 1
+            + countVisible(node.left, depth + 1)
+            + countVisible(node.right, depth + 1);
+    }
+
+    private void drawCenteredString(Graphics2D g2, String text, int centerX, int baselineY) {
+        FontMetrics metrics = g2.getFontMetrics();
+        int x = centerX - metrics.stringWidth(text) / 2;
+        g2.drawString(text, x, baselineY);
+    }
+}
 
     private static class LiveChartPanel extends JPanel {
         private double[] skill = new double[0];
