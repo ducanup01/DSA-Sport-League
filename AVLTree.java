@@ -4,6 +4,32 @@ public class AVLTree {
 
     private TreeNode root;
 
+    /*
+     * Added for visualization in LeagueDashboard.
+     * This keeps root private, but still lets the dashboard read
+     * the tree structure safely.
+     */
+    public TreeNode getRoot() {
+        return root;
+    }
+
+    public int getHeight() {
+        return height(root);
+    }
+
+    public boolean isEmpty() {
+        return root == null;
+    }
+
+    public int getNodeCount() {
+        return countNodes(root);
+    }
+
+    private int countNodes(TreeNode node) {
+        if (node == null) return 0;
+        return 1 + countNodes(node.left) + countNodes(node.right);
+    }
+
     public void printTopK(int k) {
         List<Player> top = getTopK(k);
 
@@ -124,7 +150,8 @@ public class AVLTree {
         if (a.eloPoints < b.eloPoints) return -1;
         if (a.eloPoints > b.eloPoints) return 1;
 
-        // tie-break (IMPORTANT)
+        // Tie-break by ID so two players with the same Elo
+        // can still exist as separate nodes.
         return Integer.compare(a.id, b.id);
     }
 
@@ -171,20 +198,20 @@ public class AVLTree {
     private TreeNode balance(TreeNode node) {
         int balance = getBalance(node);
 
-        // left heavy
+        // Left heavy
         if (balance > 1) {
             if (getBalance(node.left) < 0) {
-                node.left = leftRotate(node.left); // LR
+                node.left = leftRotate(node.left); // LR case
             }
-            return rightRotate(node); // LL
+            return rightRotate(node); // LL case
         }
 
-        // right heavy
+        // Right heavy
         if (balance < -1) {
             if (getBalance(node.right) > 0) {
-                node.right = rightRotate(node.right); // RL
+                node.right = rightRotate(node.right); // RL case
             }
-            return leftRotate(node); // RR
+            return leftRotate(node); // RR case
         }
 
         return node;
@@ -199,7 +226,11 @@ public class AVLTree {
         if (node == null || result.size() >= k) return;
 
         reverseInorder(node.right, result, k);
-        if (result.size() < k) result.add(node.player);
+
+        if (result.size() < k) {
+            result.add(node.player);
+        }
+
         reverseInorder(node.left, result, k);
     }
 }
